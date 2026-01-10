@@ -1,35 +1,111 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Link, Slot, usePathname } from "expo-router";
+import { Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+export default function TabsLayout() {
+  const pathname = usePathname();
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const isActive = (path: string) => pathname.startsWith(path);
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F6F7FB" }}>
+      {/* SCREENS */}
+      <View style={{ flex: 1 }}>
+        <Slot />
+      </View>
+
+      {/* FOOTER */}
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-around",
+          alignItems: "center",
+          paddingVertical: 14,
+          backgroundColor: "#fff",
+          borderTopWidth: 1,
+          borderColor: "#E5E7EB",
         }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
-    </Tabs>
+      >
+        {/* HOME */}
+        <Link href="/(tabs)" asChild>
+          <TouchableOpacity>
+            <Text
+              style={{
+                fontSize: 22,
+                color: isActive("/(tabs)") ? "#2563EB" : "#9CA3AF",
+              }}
+            >
+              🏠
+            </Text>
+          </TouchableOpacity>
+        </Link>
+
+        {/* SERVICES LIST (OPTIONAL SCREEN) */}
+        <Link href="./services" asChild>
+          <TouchableOpacity>
+            <Text
+              style={{
+                fontSize: 22,
+                color: isActive("/(tabs)/services")
+                  ? "#2563EB"
+                  : "#9CA3AF",
+              }}
+            >
+              📦
+            </Text>
+          </TouchableOpacity>
+        </Link>
+
+        {/* ADD (CENTER BUTTON) */}
+        <TouchableOpacity
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: "#2563EB",
+            justifyContent: "center",
+            alignItems: "center",
+            marginTop: -30,
+          }}
+          onPress={() => {
+            console.log("ADD BUTTON");
+          }}
+        >
+          <Text style={{ fontSize: 26, color: "#fff" }}>＋</Text>
+        </TouchableOpacity>
+
+        {/* CHAT */}
+        <Link href="/(tabs)/chat" asChild>
+          <TouchableOpacity>
+            <Text
+              style={{
+                fontSize: 22,
+                color: isActive("/(tabs)/chat")
+                  ? "#2563EB"
+                  : "#9CA3AF",
+              }}
+            >
+              💬
+            </Text>
+          </TouchableOpacity>
+        </Link>
+
+        {/* PROFILE */}
+        <Link href="/(tabs)/profile" asChild>
+          <TouchableOpacity>
+            <Text
+              style={{
+                fontSize: 22,
+                color: isActive("/(tabs)/profile")
+                  ? "#2563EB"
+                  : "#9CA3AF",
+              }}
+            >
+              👤
+            </Text>
+          </TouchableOpacity>
+        </Link>
+      </View>
+    </SafeAreaView>
   );
 }

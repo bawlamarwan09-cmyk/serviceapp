@@ -1,98 +1,243 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Animated,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import api from "../services/api";
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+type Service = {
+  _id: string;
+  name: string;
+};
+
+type User = {
+  name: string;
+  email: string;
+  role: "client" | "prestataire";
+};
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const router = useRouter();
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const [services, setServices] = useState<Service[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [dark, setDark] = useState(false);
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // 🔐 Load services + user
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const token = await AsyncStorage.getItem("token");
+        if (token) {
+          const storedUser = await AsyncStorage.getItem("user");
+          if (storedUser) setUser(JSON.parse(storedUser));
+        }
+
+        const res = await api.get("/services");
+        setServices(res.data);
+      } catch (e) {
+        console.log(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // 🔁 Refresh user when screen focused
+  useFocusEffect(
+    useCallback(() => {
+      const refreshUser = async () => {
+        const storedUser = await AsyncStorage.getItem("user");
+        setUser(storedUser ? JSON.parse(storedUser) : null);
+      };
+      refreshUser();
+    }, [])
+  );
+
+  // ✨ Fade animation
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const bg = dark ? "#020617" : "#F6F7FB";
+  const card = dark ? "#020617" : "#FFFFFF";
+  const text = dark ? "#F9FAFB" : "#111827";
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: bg }}>
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+        {/* TOP BAR */}
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            padding: 20,
+          }}
+        >
+          <Text style={{ fontSize: 18, fontWeight: "800", color: text }}>
+            Service Home
+          </Text>
+
+          {/* 🌙 Dark Mode */}
+          <TouchableOpacity onPress={() => setDark(!dark)}>
+            <Text style={{ fontSize: 20 }}>
+              {dark ? "☀️" : "🌙"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView contentContainerStyle={{ padding: 20 }}>
+          {/* HEADER */}
+          <Text style={{ fontSize: 28, fontWeight: "800", color: text }}>
+            Best Helping
+          </Text>
+          <Text style={{ fontSize: 28, fontWeight: "800", color: text }}>
+            Hand for You
+          </Text>
+
+          {/* USER CARD / LOGIN */}
+          {user ? (
+            <View
+              style={{
+                marginTop: 20,
+                padding: 16,
+                borderRadius: 16,
+                backgroundColor: "#111827",
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
+              {/* Avatar */}
+              <View
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 21,
+                  backgroundColor: "#2563EB",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 12,
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700" }}>
+                  {user.name.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: "#9CA3AF", fontSize: 12 }}>
+                  Welcome
+                </Text>
+                <Text style={{ color: "#fff", fontWeight: "700" }}>
+                  {user.name}
+                </Text>
+
+                <Text style={{ color: "#60A5FA", fontSize: 11 }}>
+                  Role: {user.role}
+                </Text>
+              </View>
+
+              {/* Logout */}
+              <TouchableOpacity
+                onPress={async () => {
+                  await AsyncStorage.clear();
+                  setUser(null);
+                }}
+              >
+                <Text style={{ color: "#F87171" }}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={() => router.push("/(tabs)/profile")}
+              style={{
+                backgroundColor: "#111827",
+                padding: 14,
+                borderRadius: 16,
+                marginTop: 20,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "700" }}>
+                Login / Register
+              </Text>
+            </TouchableOpacity>
+          )}
+            
+          {/* SERVICES */}
+          {/* SERVICES (CLIENT ONLY) */}
+{user?.role === "client" && (
+  <>
+    <Text
+      style={{
+        marginTop: 30,
+        marginBottom: 14,
+        fontSize: 18,
+        fontWeight: "700",
+        color: text,
+      }}
+    >
+      Categories
+    </Text>
+
+    {loading ? (
+      <ActivityIndicator />
+    ) : (
+      <View
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          justifyContent: "space-between",
+        }}
+      >
+        {services.map((item) => (
+          <TouchableOpacity
+            key={item._id}
+            onPress={() => {
+              // user راه client هنا، ما خاصش check أخرى
+              router.push({
+                pathname: "/(tabs)/service",
+                params: { serviceId: item._id },
+              });
+            }}
+            style={{
+              width: "30%",
+              backgroundColor: card,
+              borderRadius: 16,
+              paddingVertical: 16,
+              alignItems: "center",
+              marginBottom: 16,
+            }}
+          >
+            <Text style={{ fontSize: 24 }}>🛠️</Text>
+            <Text style={{ color: text, marginTop: 6, fontSize: 12 }}>
+              {item.name}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    )}
+  </>
+)}
+
+        </ScrollView>
+      </Animated.View>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
