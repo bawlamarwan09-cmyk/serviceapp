@@ -1,7 +1,7 @@
 import express from "express";
 import {
     createService,
-    getServices
+    getServices,
 } from "../controllers/service.controller.js";
 
 const router = express.Router();

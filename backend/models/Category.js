@@ -1,0 +1,27 @@
+import mongoose from "mongoose";
+
+const categorySchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+    },
+
+    icon: {
+      type: String, // emoji أو icon name
+      default: "",
+    },
+
+    description: {
+      type: String,
+      default: "",
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+export default mongoose.model("Category", categorySchema);

@@ -7,6 +7,7 @@ export const createPrestataire = async (req, res) => {
   try {
     const {
       service,
+      category, 
       experience,
       city,
       phone,
@@ -16,6 +17,7 @@ export const createPrestataire = async (req, res) => {
 
     if (
       !service ||
+      !category || 
       !experience ||
       !city ||
       !phone ||
@@ -33,13 +35,13 @@ export const createPrestataire = async (req, res) => {
     const prestataire = await Prestataire.create({
       user: req.user.id,
       service,
+      category, 
       experience,
       city,
       phone,
       profileImage,
       certificateImage,
       availability: true,
-      isVerified: false,
     });
 
     res.status(201).json(prestataire);
@@ -49,14 +51,29 @@ export const createPrestataire = async (req, res) => {
   }
 };
 
+
 /**
  * GET ALL VERIFIED PRESTATAIRES
  */
 export const getPrestataires = async (req, res) => {
   try {
-    const list = await Prestataire.find({ isVerified: true })
+    const filter = { isVerified: { $in: [true, false] } };
+
+
+    // 🔥 filter by service
+    if (req.query.service) {
+      filter.service = req.query.service;
+    }
+
+    const list = await Prestataire.find(filter)
       .populate("user", "name email")
-      .populate("service", "name");
+      .populate({
+        path: "service",
+        populate: {
+          path: "category",
+          select: "name icon",
+        },
+      });
 
     res.json(list);
   } catch (error) {
@@ -64,24 +81,6 @@ export const getPrestataires = async (req, res) => {
   }
 };
 
-/**
- * GET MY PRESTATAIRE (logged user)
- */
-export const getMyPrestataire = async (req, res) => {
-  try {
-    const prestataire = await Prestataire.findOne({
-      user: req.user.id,
-    }).populate("service", "name");
-
-    if (!prestataire) {
-      return res.status(404).json({ msg: "Prestataire not found" });
-    }
-
-    res.json(prestataire);
-  } catch (error) {
-    res.status(500).json({ msg: "Server error" });
-  }
-};
 
 /**
  * ADMIN VERIFY PRESTATAIRE
@@ -90,7 +89,7 @@ export const verifyPrestataire = async (req, res) => {
   try {
     const prestataire = await Prestataire.findByIdAndUpdate(
       req.params.id,
-      { isVerified: true },
+      { isVerified: { $in: [true, false]}},
       { new: true }
     );
 

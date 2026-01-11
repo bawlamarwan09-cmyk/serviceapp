@@ -1,17 +1,64 @@
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import api from "../services/api";
+/* ================= TYPES ================= */
+
+type Category = {
+  _id: string;
+  name: string;
+};
+
+type Service = {
+  _id: string;
+  name: string;
+};
+
+/* ================= SCREEN ================= */
+const uploadToCloudinary = async (
+  uri: string,
+  userId: string,
+  type: "profile" | "certificate"
+) => {
+  const data = new FormData();
+
+  data.append("file", {
+    uri,
+    type: "image/jpeg",
+    name: `${type}.jpg`,
+  } as any);
+
+  data.append("upload_preset", "mobile_upload"); // 👈 هادي هي الصح
+  data.append("folder", `users/${userId}`);
+  data.append("public_id", type);
+
+  const res = await fetch(
+    "https://api.cloudinary.com/v1_1/dzkunkxwu/image/upload",
+    {
+      method: "POST",
+      body: data,
+    }
+  );
+
+  const json = await res.json();
+  return {
+    url: json.secure_url,
+    publicId: json.public_id,
+  };
+};
+
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -22,264 +69,234 @@ export default function RegisterScreen() {
   const [role, setRole] = useState<"client" | "prestataire">("client");
 
   // prestataire fields
-  const [service, setService] = useState("");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [categoryId, setCategoryId] = useState("");
+  const [serviceId, setServiceId] = useState("");
   const [experience, setExperience] = useState("");
-  const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [certificateImage, setCertificateImage] = useState<string | null>(null);
+  const [city, setCity] = useState("");
+  // URI من الهاتف
+const [profileUri, setProfileUri] = useState<string | null>(null);
+const [certificateUri, setCertificateUri] = useState<string | null>(null);
+
+// Image uploaded (url + publicId)
+const [profileImage, setProfileImage] = useState<any>(null);
+const [certificateImage, setCertificateImage] = useState<any>(null);
 
   const [loading, setLoading] = useState(false);
 
-  const pickImage = async (setImage: any) => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Permission required", "Allow access to gallery");
-      return;
+  /* ================= LOAD CATEGORIES ================= */
+
+  useEffect(() => {
+    api.get("/categories").then((res) => setCategories(res.data));
+  }, []);
+
+  /* ================= SELECT CATEGORY ================= */
+
+  const onSelectCategory = async (id: string) => {
+    setCategoryId(id);
+    setServiceId("");
+    setServices([]);
+    
+    const res = await api.get(`/services?category=${id}`);
+    setServices(res.data);
+  };
+
+  /* ================= IMAGE PICKER (BASE64) ================= */
+
+ const pickImage = async (setUri: any) => {
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    quality: 0.6,
+  });
+
+  if (!result.canceled) {
+    setUri(result.assets[0].uri);
+  }
+};
+
+
+  /* ================= REGISTER ================= */
+
+ const handleRegister = async () => {
+  try {
+    setLoading(true);
+
+    // 1️⃣ create user
+    const payload: any = {
+      name,
+      email,
+      password,
+      role,
+      city,
+    };
+
+    if (role === "prestataire") {
+      payload.experience = experience;
+      payload.service = serviceId;
+      payload.category = categoryId;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
+    const res = await api.post("/auth/register", payload);
+    const userId = res.data.user._id;
+
+    // 2️⃣ upload images
+    const profile = await uploadToCloudinary(profileUri!, userId, "profile");
+    const certificate = await uploadToCloudinary(
+      certificateUri!,
+      userId,
+      "certificate"
+    );
+
+    // 3️⃣ update user images
+    await api.put(`/users/${userId}/images`, {
+      profileImage: profile,
+      certificateImage: certificate,
     });
 
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-    }
-  };
-
-  const handleRegister = async () => {
-    if (!name || !email || !password) {
-      Alert.alert("Error", "All fields are required");
-      return;
-    }
-
-    if (
-      role === "prestataire" &&
-      (!service || !experience || !profileImage || !certificateImage)
-    ) {
-      Alert.alert("Error", "Complete prestataire information");
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      await api.post("/auth/register", {
-        name,
-        email,
-        password,
-        role,
-        service,
-        experience,
-        profileImage,
-        certificateImage,
-      });
-
-      Alert.alert("Success", "Account created successfully");
-      router.replace("/(auth)/login");
-    } catch (err: any) {
-      Alert.alert(
-        "Register failed",
-        err?.response?.data?.msg || "Something went wrong"
+    if (role === "prestataire") {
+    
+      await api.post(
+        "/prestataires",
+        {
+          service: serviceId,
+          category: categoryId,
+          experience,
+          city,
+          profileImage: profile,
+          certificateImage: certificate,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${res.data.token}`, // أو token مخزّن
+          },
+        }
       );
-    } finally {
-      setLoading(false);
     }
-  };
+
+    Alert.alert("Success", "Account created");
+  } catch (e) {
+    console.log(e);
+    Alert.alert("Error", "Register failed");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+  /* ================= UI ================= */
 
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        backgroundColor: "#F1F5F9",
-        justifyContent: "center",
-        paddingHorizontal: 20,
-      }}
-    >
-      <View
-        style={{
-          backgroundColor: "#FFFFFF",
-          borderRadius: 24,
-          padding: 24,
-          shadowColor: "#000",
-          shadowOpacity: 0.08,
-          shadowRadius: 20,
-          shadowOffset: { width: 0, height: 10 },
-          elevation: 10,
-        }}
-      >
-        <Text
-          style={{
-            fontSize: 28,
-            fontWeight: "800",
-            textAlign: "center",
-            color: "#111827",
-          }}
-        >
-          Create Account ✨
-        </Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F1F5F9" }}>
+      <ScrollView contentContainerStyle={{ padding: 20 }}>
+        <View style={styles.card}>
+          <Text style={styles.title}>Create Account ✨</Text>
+          <Text style={styles.subtitle}>Sign up to get started</Text>
 
-        <Text
-          style={{
-            textAlign: "center",
-            color: "#6B7280",
-            marginTop: 6,
-            marginBottom: 30,
-          }}
-        >
-          Sign up to get started
-        </Text>
+          <Label text="Full Name" />
+          <Input value={name} onChangeText={setName} />
 
-        {/* NAME */}
-        <Text  style={{
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 6,
-  }}>Full Name</Text>
-        <TextInput
-          placeholder="Your name"
-          value={name}
-          onChangeText={setName}
-          style={input}
-        />
+          <Label text="Email" />
+          <Input value={email} onChangeText={setEmail} />
 
-        {/* EMAIL */}
-        <Text  style={{
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 6,
-  }}>Email</Text>
-        <TextInput
-          placeholder="you@example.com"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          style={input}
-        />
+          <Label text="Password" />
+          <Input value={password} onChangeText={setPassword} secureTextEntry />
 
-        {/* PASSWORD */}
-        <Text  style={{
-        fontSize: 14,
-        fontWeight: "600",
-        color: "#374151",
-        marginBottom: 6,
-    }}>Password</Text>
-        <TextInput
-          placeholder="••••••••"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          style={input}
-        />
-
-        {/* ROLE */}
-        <Text style={{
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 6,
-  }}>Choose Role</Text>
-        <View style={{ flexDirection: "row", marginBottom: 20 }}>
-          <RoleBtn title="👤 Client" active={role === "client"} onPress={() => setRole("client")} />
-          <RoleBtn title="🧑‍🔧 Prestataire" active={role === "prestataire"} onPress={() => setRole("prestataire")} />
-        </View>
-
-        {/* PRESTATAIRE EXTRA */}
-        {role === "prestataire" && (
-          <>
-            <Text  style={{
-                fontSize: 14,
-                fontWeight: "600",
-                color: "#374151",
-                marginBottom: 6,
-            }}>Service</Text>
-             <TextInput
-              placeholder="Plumber, Electrician..."
-              value={service}
-              onChangeText={setService}
-              style={input}
+          <Label text="Choose Role" />
+          <View style={{ flexDirection: "row", marginBottom: 20 }}>
+            <RoleBtn
+              title="👤 Client"
+              active={role === "client"}
+              onPress={() => setRole("client")}
             />
-
-            <Text  style={{
-            fontSize: 14,
-            fontWeight: "600",
-            color: "#374151",
-            marginBottom: 6,
-        }}>Experience (years)</Text>
-            <TextInput
-              placeholder="e.g 5"
-              value={experience}
-              onChangeText={setExperience}
-              keyboardType="numeric"
-              style={input}
+            <RoleBtn
+              title="🧑‍🔧 Prestataire"
+              active={role === "prestataire"}
+              onPress={() => setRole("prestataire")}
             />
+          </View>
 
-            <Upload
+          {role === "prestataire" && (
+            <>
+              <Label text="Category" />
+              {categories.map((c) => (
+                <SelectBtn
+                  key={c._id}
+                  title={c.name}
+                  active={categoryId === c._id}
+                  onPress={() => onSelectCategory(c._id)}
+                />
+              ))}
+
+              {categoryId !== "" && (
+                <>
+                  <Label text="Service" />
+                  {services.map((s) => (
+                    <SelectBtn
+                      key={s._id}
+                      title={s.name}
+                      active={serviceId === s._id}
+                      onPress={() => setServiceId(s._id)}
+                    />
+                  ))}
+                </>
+              )}
+
+              <Label text="Experience (years)" />
+              <Input value={experience} onChangeText={setExperience} />
+
+              <Label text="City" />
+              <Input value={city} onChangeText={setCity} />
+
+              <Upload
               title="Profile Image"
-              image={profileImage}
-              onPress={() => pickImage(setProfileImage)}
+              image={profileUri}
+              onPress={() => pickImage(setProfileUri)}
             />
 
             <Upload
               title="Certificate"
-              image={certificateImage}
-              onPress={() => pickImage(setCertificateImage)}
+              image={certificateUri}
+              onPress={() => pickImage(setCertificateUri)}
             />
-          </>
-        )}
 
-        {/* REGISTER */}
-        <TouchableOpacity
-          onPress={handleRegister}
-          disabled={loading}
-          style={{
-            backgroundColor: "#2563EB",
-            paddingVertical: 16,
-            borderRadius: 16,
-            alignItems: "center",
-            marginTop: 10,
-          }}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={{ color: "#fff", fontWeight: "700" }}>Register</Text>
+            </>
           )}
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => router.push("/(auth)/login")}
-          style={{ marginTop: 20 }}
-        >
-          <Text style={{ textAlign: "center", color: "#6B7280" }}>
-            Already have an account?{" "}
-            <Text style={{ color: "#2563EB", fontWeight: "700" }}>Login</Text>
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity onPress={handleRegister} style={styles.btn}>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={{ color: "#fff", fontWeight: "700" }}>
+                Register
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-/* 🔽 COMPONENTS & STYLES */
+/* ================= SMALL COMPONENTS ================= */
 
-const label = {
-  fontSize: 14,
-  fontWeight: "600",
-  color: "#374151",
-  marginBottom: 6,
-};
+const Label = ({ text }: any) => (
+  <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 6 }}>
+    {text}
+  </Text>
+);
 
-const input = {
-  backgroundColor: "#F3F4F6",
-  borderRadius: 14,
-  paddingVertical: 14,
-  paddingHorizontal: 16,
-  marginBottom: 16,
-  color: "#111827",
-};
+const Input = (props: any) => (
+  <TextInput
+    {...props}
+    style={{
+      backgroundColor: "#F3F4F6",
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 16,
+    }}
+  />
+);
 
 const RoleBtn = ({ title, active, onPress }: any) => (
   <TouchableOpacity
@@ -287,7 +304,7 @@ const RoleBtn = ({ title, active, onPress }: any) => (
     style={{
       flex: 1,
       marginHorizontal: 5,
-      paddingVertical: 14,
+      padding: 14,
       borderRadius: 14,
       alignItems: "center",
       backgroundColor: active ? "#2563EB" : "#E5E7EB",
@@ -299,21 +316,81 @@ const RoleBtn = ({ title, active, onPress }: any) => (
   </TouchableOpacity>
 );
 
-const Upload = ({ title, image, onPress }: any) => (
+const SelectBtn = ({ title, active, onPress }: any) => (
   <TouchableOpacity
     onPress={onPress}
     style={{
-      backgroundColor: "#E5E7EB",
+      backgroundColor: active ? "#2563EB" : "#E5E7EB",
+      padding: 14,
       borderRadius: 14,
-      padding: 16,
-      alignItems: "center",
-      marginBottom: 16,
+      marginBottom: 8,
     }}
   >
+    <Text style={{ color: active ? "#fff" : "#111827", fontWeight: "700" }}>
+      {title}
+    </Text>
+  </TouchableOpacity>
+);
+
+const Upload = ({ title, image, onPress }: any) => (
+  <TouchableOpacity onPress={onPress} style={styles.upload}>
     {image ? (
-      <Image source={{ uri: image }} style={{ width: 80, height: 80, borderRadius: 10 }} />
+      <Image source={{ uri: image }} style={{ width: 80, height: 80 }} />
     ) : (
-      <Text style={{ fontWeight: "600" }}>📤 Upload {title}</Text>
+      <Text>📤 Upload {title}</Text>
     )}
   </TouchableOpacity>
 );
+
+/* ================= STYLES ================= */
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 24,
+  },
+
+  title: {
+    fontSize: 28,
+    fontWeight: "800",
+    textAlign: "center",
+    color: "#111827",
+  },
+
+  subtitle: {
+    textAlign: "center",
+    color: "#6B7280",
+    marginBottom: 30,
+  },
+
+  input: {
+    backgroundColor: "#F3F4F6",
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    color: "#111827",
+  },
+
+  button: {
+    backgroundColor: "#2563EB",
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  upload: {
+    backgroundColor: "#E5E7EB",
+    borderRadius: 14,
+    padding: 16,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  btn: {
+    backgroundColor: "#2563EB",
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    marginTop: 10,
+  },
+});

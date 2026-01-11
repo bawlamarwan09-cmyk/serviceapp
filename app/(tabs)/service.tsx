@@ -4,163 +4,118 @@ import {
   ActivityIndicator,
   ScrollView,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import api from "../services/api";
 
-type Service = {
+/* 🔹 TYPES (مهم) */
+type Prestataire = {
   _id: string;
-  name: string;
-  description?: string;
-  price?: number;
+  user?: {
+    name: string;
+  };
+  experience?: number;
+  city?: string;
+  availability?: boolean;
 };
 
 export default function ServiceScreen() {
   const { serviceId } = useLocalSearchParams<{ serviceId: string }>();
 
-  const [service, setService] = useState<Service | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [prestataires, setPrestataires] = useState<Prestataire[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     if (!serviceId) return;
 
-    const loadService = async () => {
+    const loadPrestataires = async () => {
       try {
-        const res = await api.get(`/services/${serviceId}`);
-        setService(res.data);
+        const res = await api.get(
+          `/prestataires?service=${serviceId}`
+        );
+        setPrestataires(res.data);
       } catch (err) {
-        console.log("Error loading service", err);
+        console.log("Error loading prestataires", err);
       } finally {
         setLoading(false);
       }
     };
 
-    loadService();
+    loadPrestataires();
   }, [serviceId]);
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F6F7FB]">
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
-        {/* LOADING */}
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F6F7FB" }}>
+      <ScrollView contentContainerStyle={{ padding: 20 }}>
+        <Text
+          style={{
+            fontSize: 24,
+            fontWeight: "800",
+            marginBottom: 20,
+            color: "#111827",
+          }}
+        >
+          Prestataires
+        </Text>
+
         {loading ? (
-          <ActivityIndicator size="large" color="#2563EB" />
-        ) : !service ? (
-          <Text>Service not found</Text>
+          <ActivityIndicator />
+        ) : prestataires.length === 0 ? (
+          <Text style={{ color: "#6B7280" }}>
+            No prestataires for this service
+          </Text>
         ) : (
-          <>
-            {/* TITLE */}
-            <Text
+          prestataires.map((p) => (
+            <View
+              key={p._id} // ✅ ما غاديش يطلع بالحمّر
               style={{
-                fontSize: 24,
-                fontWeight: "800",
-                color: "#111827",
-              }}
-            >
-              {service.name}
-            </Text>
-
-            {/* PRICE */}
-            {service.price && (
-              <Text
-                style={{
-                  fontSize: 18,
-                  color: "#2563EB",
-                  marginTop: 6,
-                }}
-              >
-                ${service.price}
-              </Text>
-            )}
-
-            {/* DESCRIPTION */}
-            {service.description && (
-              <Text
-                style={{
-                  fontSize: 14,
-                  color: "#6B7280",
-                  marginTop: 10,
-                }}
-              >
-                {service.description}
-              </Text>
-            )}
-
-            {/* APARTMENT SIZE (STATIC UI) */}
-            <View style={{ marginTop: 24 }}>
-              <Text style={{ fontSize: 16, fontWeight: "700" }}>
-                Apartment Size
-              </Text>
-
-              <View style={{ flexDirection: "row", marginTop: 12 }}>
-                {["Small", "Medium", "Large"].map((item) => (
-                  <View
-                    key={item}
-                    style={{
-                      paddingVertical: 10,
-                      paddingHorizontal: 16,
-                      backgroundColor: "#fff",
-                      borderRadius: 12,
-                      marginRight: 12,
-                    }}
-                  >
-                    <Text>{item}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* ROOMS */}
-            <View style={{ marginTop: 24 }}>
-              <Text style={{ fontSize: 16, fontWeight: "700" }}>
-                Number of Rooms
-              </Text>
-
-              <View style={{ flexDirection: "row", marginTop: 12 }}>
-                {[1, 2, 3].map((n) => (
-                  <View
-                    key={n}
-                    style={{
-                      width: 50,
-                      height: 50,
-                      backgroundColor: "#fff",
-                      borderRadius: 12,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      marginRight: 12,
-                    }}
-                  >
-                    <Text>{n}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* CONFIRM BUTTON */}
-            <TouchableOpacity
-              style={{
-                backgroundColor: "#2563EB",
-                paddingVertical: 16,
+                backgroundColor: "#FFFFFF",
                 borderRadius: 16,
-                marginTop: 40,
-                alignItems: "center",
-              }}
-              onPress={() => {
-                console.log("CONFIRM SERVICE:", service._id);
+                padding: 16,
+                marginBottom: 14,
+                shadowColor: "#000",
+                shadowOpacity: 0.05,
+                shadowRadius: 8,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 4,
               }}
             >
               <Text
                 style={{
-                  color: "#fff",
-                  fontSize: 16,
                   fontWeight: "700",
+                  fontSize: 16,
+                  color: "#111827",
                 }}
               >
-                Confirm
+                {p.user?.name || "Prestataire"}
               </Text>
-            </TouchableOpacity>
-          </>
+
+              {p.experience !== undefined && (
+                <Text style={{ color: "#6B7280", marginTop: 4 }}>
+                  Experience: {p.experience} years
+                </Text>
+              )}
+
+              {p.city && (
+                <Text style={{ color: "#6B7280", marginTop: 2 }}>
+                  City: {p.city}
+                </Text>
+              )}
+
+              {p.availability !== undefined && (
+                <Text
+                  style={{
+                    marginTop: 6,
+                    color: p.availability ? "#16A34A" : "#DC2626",
+                    fontWeight: "600",
+                  }}
+                >
+                  {p.availability ? "Available" : "Unavailable"}
+                </Text>
+              )}
+            </View>
+          ))
         )}
       </ScrollView>
     </SafeAreaView>

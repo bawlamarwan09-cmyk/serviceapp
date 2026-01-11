@@ -6,74 +6,83 @@ export default function WelcomeScreen() {
   const router = useRouter();
 
   return (
-    <View style={{ flex: 1 }}>
-      {/* BACKGROUND IMAGE */}
-      <Image
-        source={require("../assets/images/hero.png")}
-        style={{
-          position: "absolute",
-          width: "100%",
-          height: "100%",
-          resizeMode: "cover",
-        }}
-      />
+    <View style={{ flex: 1, backgroundColor: "#8d5a18ff" }}>
+      {/* CENTER CONTENT */}
+     <View
+      style={{
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 24,
+      }}
+    >
 
-      {/* TEXT (TOP LEFT – CLEAN STYLE) */}
-      <Animated.View
-        entering={FadeInUp.delay(100)}
-        style={{
-          position: "absolute",
-          top: 80,
-          left: 24,
-          right: 24,
-        }}
-      >
-        {/* SMALL TAG */}
-        <Text
-          style={{
-            fontSize: 12,
-            letterSpacing: 2,
-            color: "#F59E0B",
-            marginBottom: 8,
-            fontWeight: "600",
-          }}
-        >
-          TRUSTED SERVICE
-        </Text>
+        {/* LOGO */}
+        <Animated.View entering={FadeInUp.delay(300)}>
+          <Image
+            source={require("../assets/images/logo.png")}
+            style={{
+              width: 500,
+              height: 400,
+              resizeMode: "contain",
+              marginBottom: 20,
+            }}
+          />
+        </Animated.View>
 
-        {/* TITLE */}
-        <Text
-          style={{
-            fontSize: 36,
-            fontWeight: "800",
-            color: "#0F172A",
-            lineHeight: 42,
-            maxWidth: "85%",
-          }}
+        {/* TEXT */}
+        <Animated.View
+          entering={FadeInUp.delay(400)}
+          style={{ alignItems: "center" }}
         >
-          Best Helping{"\n"}Hand for You
-        </Text>
+          {/* TAG */}
+          <Text
+            style={{
+              fontSize: 12,
+              letterSpacing: 2,
+              color: "#f0ece4ff",
+              marginBottom: 10,
+              fontWeight: "600",
+            }}
+          >
+            TRUSTED SERVICE
+          </Text>
 
-        {/* SUBTITLE */}
-        <Text
-          style={{
-            fontSize: 15,
-            color: "#475569",
-            marginTop: 12,
-            lineHeight: 22,
-            maxWidth: "85%",
-          }}
-        >
-          Find trusted experts for all services you need at your home.
-        </Text>
-      </Animated.View>
+          {/* TITLE */}
+          <Text
+            style={{
+              fontSize: 30,
+              fontWeight: "800",
+              color: "#8ca6e3ff",
+              lineHeight: 40,
+              textAlign: "center",
+              marginBottom: 12,
+            }}
+          >
+            Best Helping Hand for You
+          </Text>
+
+          {/* SUBTITLE */}
+          <Text
+            style={{
+              fontSize: 15,
+              color: "#ffffffff",
+              lineHeight: 20,
+              textAlign: "center",
+              maxWidth: "90%",
+            }}
+          >
+            Find trusted experts for all services you need at your home.
+          </Text>
+        </Animated.View>
+      </View>
 
       {/* ARROW BUTTON */}
       <Animated.View
-        entering={FadeInUp.delay(4000)}
+        entering={FadeInUp.delay(800)}
         style={{
           position: "absolute",
-          bottom: 90,
+          bottom: 70,
           alignSelf: "center",
         }}
       >
@@ -84,7 +93,7 @@ export default function WelcomeScreen() {
             width: 64,
             height: 64,
             borderRadius: 32,
-            backgroundColor: "#FDBA74",
+            backgroundColor: "#ffffffff",
             alignItems: "center",
             justifyContent: "center",
             elevation: 6,
