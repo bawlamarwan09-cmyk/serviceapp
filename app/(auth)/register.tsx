@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -60,7 +61,7 @@ const uploadToCloudinary = async (
 };
 
 
-export default function RegisterScreen() {
+export default  function RegisterScreen() {
   const router = useRouter();
 
   const [name, setName] = useState("");
@@ -88,8 +89,8 @@ const [certificateImage, setCertificateImage] = useState<any>(null);
   /* ================= LOAD CATEGORIES ================= */
 
   useEffect(() => {
-    api.get("/categories").then((res) => setCategories(res.data));
-  }, []);
+  api.get("/catalog/categories").then((res) => setCategories(res.data));
+}, []);
 
   /* ================= SELECT CATEGORY ================= */
 
@@ -98,7 +99,7 @@ const [certificateImage, setCertificateImage] = useState<any>(null);
     setServiceId("");
     setServices([]);
     
-    const res = await api.get(`/services?category=${id}`);
+const res = await api.get(`/catalog/services?category=${id}`);
     setServices(res.data);
   };
 
@@ -122,7 +123,6 @@ const [certificateImage, setCertificateImage] = useState<any>(null);
   try {
     setLoading(true);
 
-    // 1️⃣ create user
     const payload: any = {
       name,
       email,
@@ -137,7 +137,10 @@ const [certificateImage, setCertificateImage] = useState<any>(null);
       payload.category = categoryId;
     }
 
+    // 1️⃣ register
     const res = await api.post("/auth/register", payload);
+
+    await AsyncStorage.setItem("token", res.data.token);
     const userId = res.data.user._id;
 
     // 2️⃣ upload images
@@ -148,30 +151,16 @@ const [certificateImage, setCertificateImage] = useState<any>(null);
       "certificate"
     );
 
-    // 3️⃣ update user images
-    await api.put(`/users/${userId}/images`, {
-      profileImage: profile,
-      certificateImage: certificate,
-    });
-
+    // 3️⃣ create prestataire
     if (role === "prestataire") {
-    
-      await api.post(
-        "/prestataires",
-        {
-          service: serviceId,
-          category: categoryId,
-          experience,
-          city,
-          profileImage: profile,
-          certificateImage: certificate,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${res.data.token}`, // أو token مخزّن
-          },
-        }
-      );
+      await api.post("/prestataires", {
+        service: serviceId,
+        category: categoryId,
+        experience,
+        city,
+        profileImage: profile,
+        certificateImage: certificate,
+      });
     }
 
     Alert.alert("Success", "Account created");
