@@ -1,6 +1,6 @@
 import axios from "axios";
+import mongoose from "mongoose";
 import Prestataire from "../models/Prestataire.js";
-
 const CATALOG_URL = process.env.CATALOG_SERVICE_URL;
 
 /**
@@ -16,14 +16,13 @@ export const createPrestataire = async (req, res) => {
       profileImage,
       certificateImage,
     } = req.body;
-
+    console.log("CATALOG_URL =", process.env.CATALOG_SERVICE_URL);
+    console.log("SERVICE ID =", service);
     if (
       !service ||
       !category ||
       !experience ||
-      !city ||
-      !profileImage ||
-      !certificateImage
+      !city 
     ) {
       return res.status(400).json({ msg: "All fields are required" });
     }
@@ -36,14 +35,16 @@ export const createPrestataire = async (req, res) => {
 
     // 🔥 verify service belongs to category (Catalog Service)
     const serviceRes = await axios.get(
-      `${CATALOG_URL}/services/${service}`
-    );
+  `http://localhost:3000/api/services/${service}`
+);
 
-    if (serviceRes.data.category._id !== category) {
-      return res
-        .status(400)
-        .json({ msg: "Service does not belong to category" });
-    }
+
+    if (serviceRes.data.category._id.toString() !== category.toString()) {
+  return res
+    .status(400)
+    .json({ msg: "Service does not belong to category" });
+}
+
 
     const prestataire = await Prestataire.create({
       user: req.user.id,
@@ -60,6 +61,8 @@ export const createPrestataire = async (req, res) => {
     console.error(error.message);
     res.status(500).json({ msg: "Server error" });
   }
+  
+
 };
 
 /**
@@ -69,8 +72,13 @@ export const getPrestataires = async (req, res) => {
   try {
     const filter = {};
 
-    if (req.query.service) filter.service = req.query.service;
-    if (req.query.category) filter.category = req.query.category;
+    
+if (req.query.service) {
+  filter.service = new mongoose.Types.ObjectId(req.query.service);
+}
+if (req.query.category) {
+  filter.category = new mongoose.Types.ObjectId(req.query.category);
+}
 
     const list = await Prestataire.find(filter).sort({ createdAt: -1 });
 
@@ -95,6 +103,19 @@ export const verifyPrestataire = async (req, res) => {
       return res.status(404).json({ msg: "Prestataire not found" });
     }
 
+    res.json(prestataire);
+  } catch (error) {
+    res.status(500).json({ msg: "Server error" });
+  }
+};
+export const getPrestataireById = async (req, res) => {
+  try {
+    const prestataire = await Prestataire.findById(req.params.id);
+    
+    if (!prestataire) {
+      return res.status(404).json({ msg: "Prestataire not found" });
+    }
+    
     res.json(prestataire);
   } catch (error) {
     res.status(500).json({ msg: "Server error" });

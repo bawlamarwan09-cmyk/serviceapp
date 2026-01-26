@@ -11,20 +11,32 @@ app.use(cors());
 app.use(express.json());
 
 /**
- * 🔐 JWT Middleware (اختياري حسب route)
+ * 🔓 PUBLIC AUTH ROUTES (NO JWT HERE)
+ */
+app.use(
+  "/api/auth",
+  proxy(process.env.AUTH_SERVICE_URL, {
+    proxyReqPathResolver: (req) => `/auth${req.url}`,
+  })
+);
+
+/**
+ * 🔐 JWT MIDDLEWARE (PROTECT EVERYTHING ELSE)
  */
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return next(); // routes public كيدوزو
+    return next();
   }
 
   try {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 🔥 مرّر user info للـ services
+    // 🔥 FORWARD AUTH HEADER
+    req.headers["authorization"] = authHeader;
+
     req.headers["x-user-id"] = decoded.id;
     req.headers["x-user-role"] = decoded.role;
   } catch (err) {
@@ -34,21 +46,10 @@ const authMiddleware = (req, res, next) => {
   next();
 };
 
+
 app.use(authMiddleware);
 
-/**
- * 🚦 ROUTING
- */
 
-// Auth Service
-app.use(
-  "/api/auth",
-  proxy(process.env.AUTH_SERVICE_URL, {
-    proxyReqPathResolver: (req) => `/auth${req.url}`,
-  })
-);
-
-// Catalog Service
 app.use(
   "/api/catalog",
   proxy(process.env.CATALOG_SERVICE_URL, {
@@ -68,9 +69,16 @@ app.use(
   "/api/demands",
   proxy(process.env.DEMAND_SERVICE_URL, {
     proxyReqPathResolver: (req) => `/demands${req.url}`,
+    proxyReqOptDecorator: (proxyReqOpts, srcReq) => {
+      // ✅ Forward Authorization header (JWT token)
+      if (srcReq.headers.authorization) {
+        proxyReqOpts.headers['Authorization'] = srcReq.headers.authorization;
+      }
+      return proxyReqOpts;
+    },
   })
 );
-
+// Messages Service
 app.use(
   "/api/messages",
   proxy(process.env.MESSAGE_SERVICE_URL, {
@@ -78,15 +86,11 @@ app.use(
   })
 );
 
-
-app.use(
-  "/ratings",
-  proxy("http://localhost:5000")
-);
-
+// Ratings (example)
+app.use("/ratings", proxy("http://localhost:5000"));
 
 /**
- * ❌ 404
+ * ❌ FALLBACK
  */
 app.use((req, res) => {
   res.status(404).json({ msg: "Gateway route not found" });
@@ -95,4 +99,3 @@ app.use((req, res) => {
 app.listen(process.env.PORT, "0.0.0.0", () => {
   console.log("API Gateway running on port " + process.env.PORT);
 });
-

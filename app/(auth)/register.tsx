@@ -69,18 +69,16 @@ export default  function RegisterScreen() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"client" | "prestataire">("client");
 
-  // prestataire fields
   const [categories, setCategories] = useState<Category[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [categoryId, setCategoryId] = useState("");
   const [serviceId, setServiceId] = useState("");
   const [experience, setExperience] = useState("");
   const [city, setCity] = useState("");
-  // URI من الهاتف
+
 const [profileUri, setProfileUri] = useState<string | null>(null);
 const [certificateUri, setCertificateUri] = useState<string | null>(null);
 
-// Image uploaded (url + publicId)
 const [profileImage, setProfileImage] = useState<any>(null);
 const [certificateImage, setCertificateImage] = useState<any>(null);
 
@@ -117,7 +115,6 @@ const res = await api.get(`/catalog/services?category=${id}`);
 };
 
 
-  /* ================= REGISTER ================= */
 
  const handleRegister = async () => {
   try {

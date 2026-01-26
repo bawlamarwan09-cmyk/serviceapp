@@ -1,8 +1,6 @@
 import jwt from "jsonwebtoken";
 
-/**
- * Protect routes (JWT)
- */
+
 export const protect = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -21,9 +19,7 @@ export const protect = (req, res, next) => {
   }
 };
 
-/**
- * Admin only access
- */
+
 export const adminOnly = (req, res, next) => {
   if (req.user.role !== "admin") {
     return res.status(403).json({ msg: "Admin access only" });

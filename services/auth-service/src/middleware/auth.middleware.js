@@ -1,8 +1,6 @@
 import jwt from "jsonwebtoken";
 
-/**
- * Protect routes (JWT)
- */
+
 export const protect = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -14,16 +12,14 @@ export const protect = (req, res, next) => {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    req.user = decoded; // { id, role }
+    req.user = decoded; 
     next();
   } catch (error) {
     return res.status(401).json({ msg: "Not authorized, token invalid" });
   }
 };
 
-/**
- * Admin only access
- */
+
 export const adminOnly = (req, res, next) => {
   if (req.user.role !== "admin") {
     return res.status(403).json({ msg: "Admin access only" });
