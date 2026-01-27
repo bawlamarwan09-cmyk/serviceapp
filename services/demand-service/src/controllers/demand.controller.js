@@ -5,34 +5,35 @@ export const createDemand = async (req, res) => {
   try {
     const { prestataireId, serviceId, message } = req.body;
     const clientId = req.user.id;
+    const userRole = req.user.role;
+
+    console.log("📥 Creating demand");
+    console.log("   User ID:", clientId);
+    console.log("   User Role:", userRole);
+
+    // ✅ Only clients can create demands
+    if (userRole !== 'client') {
+      return res.status(403).json({ 
+        msg: "Only clients can create demands" 
+      });
+    }
 
     if (!prestataireId || !serviceId) {
       return res.status(400).json({ msg: "prestataireId and serviceId are required" });
     }
 
-    // ✅ Verify the prestataireId is a valid prestataire and get their user ID
-    try {
-      const prestataireRes = await axios.get(
-        `${process.env.PRESTATAIRE_SERVICE_URL}/api/prestataires/${prestataireId}`
-      );
+    const demand = await Demand.create({
+      clientId,
+      prestataireId,
+      serviceId,
+      message,
+    });
 
-      // Use the USER ID from the prestataire document
-      const prestataireUserId = prestataireRes.data.user;
-
-      const demand = await Demand.create({
-        clientId,
-        prestataireId: prestataireUserId, // ✅ Store USER ID, not prestataire doc ID
-        serviceId,
-        message,
-      });
-
-      res.status(201).json(demand);
-    } catch (error) {
-      return res.status(400).json({ msg: "Invalid prestataire ID" });
-    }
+    console.log("✅ Demand created:", demand._id);
+    res.status(201).json(demand);
 
   } catch (error) {
-    console.error("CREATE DEMAND ERROR:", error.message);
+    console.error("❌ CREATE DEMAND ERROR:", error.message);
     res.status(500).json({ msg: "Server error", error: error.message });
   }
 };
@@ -40,14 +41,25 @@ export const createDemand = async (req, res) => {
 // ✅ Get my demands
 export const getMyDemands = async (req, res) => {
   try {
-    // ✅ Use req.user.id from JWT instead of header
     const userId = req.user.id;
+    const userRole = req.user.role;
+
+    console.log("🔍 Get demands for user:", userId, "Role:", userRole);
+
+    // ✅ Only allow clients and prestataires to see demands
+    if (userRole !== 'client' && userRole !== 'prestataire') {
+      return res.status(403).json({ 
+        msg: "Only clients and prestataires can view demands" 
+      });
+    }
 
     const list = await Demand.find({
       $or: [{ clientId: userId }, { prestataireId: userId }],
     });
 
+    console.log(`✅ Found ${list.length} demands for user`);
     res.json(list);
+
   } catch (error) {
     console.error("GET MY DEMANDS ERROR:", error.message);
     res.status(500).json({ msg: "Server error", error: error.message });
@@ -59,6 +71,19 @@ export const getMyDemands = async (req, res) => {
 export const updateStatus = async (req, res) => {
   try {
     const { status } = req.body;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    console.log("📥 Update status request");
+    console.log("   User ID:", userId);
+    console.log("   User Role:", userRole);
+
+    // ✅ Only prestataires can update status
+    if (userRole !== 'prestataire') {
+      return res.status(403).json({ 
+        msg: "Only prestataires can update demand status" 
+      });
+    }
 
     if (!status) {
       return res.status(400).json({ msg: "Status is required" });
@@ -70,43 +95,40 @@ export const updateStatus = async (req, res) => {
       return res.status(404).json({ msg: "Demand not found" });
     }
 
-    // ✅ Better error logging
-    const prestataireUrl = `${process.env.PRESTATAIRE_SERVICE_URL}/api/prestataires/${demand.prestataireId}`;
-    console.log("🔍 Fetching prestataire from:", prestataireUrl);
+    // ✅ Verify this prestataire owns this demand
+    if (process.env.PRESTATAIRE_SERVICE_URL) {
+      try {
+        const prestataireRes = await axios.get(
+          `${process.env.PRESTATAIRE_SERVICE_URL}/api/prestataires/${demand.prestataireId}`
+        );
 
-    try {
-      const prestataireRes = await axios.get(prestataireUrl);
+        const prestataireUserId = prestataireRes.data.user.toString();
 
-      console.log("✅ Prestataire response:", prestataireRes.data);
+        if (prestataireUserId !== userId) {
+          return res.status(403).json({ msg: "Not authorized to update this demand" });
+        }
 
-      const prestataireUserId = prestataireRes.data.user.toString();
-
-      console.log("=" .repeat(50));
-      console.log("🔍 Prestataire user ID:", prestataireUserId);
-      console.log("🔍 Current user ID (from JWT):", req.user.id);
-      console.log("🔍 Match?", prestataireUserId === req.user.id);
-      console.log("=" .repeat(50));
-
-      if (prestataireUserId !== req.user.id) {
+      } catch (error) {
+        console.warn("⚠️ Prestataire verification failed, checking direct ID");
+        
+        // Fallback: check if demand.prestataireId matches user ID
+        if (demand.prestataireId.toString() !== userId) {
+          return res.status(403).json({ msg: "Not authorized to update this demand" });
+        }
+      }
+    } else {
+      // No prestataire service, check directly
+      if (demand.prestataireId.toString() !== userId) {
         return res.status(403).json({ msg: "Not authorized to update this demand" });
       }
-
-    } catch (error) {
-      console.error("❌ Error fetching prestataire:");
-      console.error("   URL:", prestataireUrl);
-      console.error("   Status:", error.response?.status);
-      console.error("   Data:", error.response?.data);
-      console.error("   Message:", error.message);
-      return res.status(500).json({ 
-        msg: "Error verifying prestataire",
-        debug: error.message 
-      });
     }
 
     demand.status = status;
     await demand.save();
 
+    console.log("✅ Status updated to:", status);
     res.json(demand);
+
   } catch (error) {
     console.error("UPDATE STATUS ERROR:", error.message);
     res.status(500).json({ msg: "Server error", error: error.message });

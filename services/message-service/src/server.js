@@ -1,24 +1,23 @@
-import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
-import connectDB from "./config/db.js";
+import mongoose from "mongoose";
 import messageRoutes from "./routes/message.routes.js";
 
 dotenv.config();
-connectDB();
 
 const app = express();
-
-app.use(cors());
 app.use(express.json());
 
-// routes
-app.use("/messages", messageRoutes);
+// Routes
+app.use("/api/messages", messageRoutes);
 
-app.get("/", (req, res) => {
-  res.send("💬 Message Service is running");
-});
+// MongoDB
+mongoose
+  .connect(process.env.MONGO_URI || "mongodb://localhost:27017/message-db")
+  .then(() => console.log("✅ Message DB connected"))
+  .catch((err) => console.error("❌ MongoDB error:", err));
 
-app.listen(process.env.PORT, () => {
-  console.log("💬 Message Service running on port " + process.env.PORT);
+const PORT = process.env.PORT || 4004;
+app.listen(PORT, () => {
+  console.log(`✅ Message Service running on http://localhost:${PORT}`);
 });

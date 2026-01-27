@@ -70,7 +70,6 @@ app.use(
   proxy(process.env.DEMAND_SERVICE_URL, {
     proxyReqPathResolver: (req) => `/demands${req.url}`,
     proxyReqOptDecorator: (proxyReqOpts, srcReq) => {
-      // ✅ Forward Authorization header (JWT token)
       if (srcReq.headers.authorization) {
         proxyReqOpts.headers['Authorization'] = srcReq.headers.authorization;
       }
@@ -78,11 +77,19 @@ app.use(
     },
   })
 );
-// Messages Service
 app.use(
   "/api/messages",
-  proxy(process.env.MESSAGE_SERVICE_URL, {
-    proxyReqPathResolver: (req) => `/messages${req.url}`,
+  proxy(process.env.MESSAGE_SERVICE_URL || "http://localhost:4004", {
+    proxyReqPathResolver: (req) => `/api/messages${req.url}`,
+    proxyReqOptDecorator: (proxyReqOpts, srcReq) => {
+      if (srcReq.headers.authorization) {
+        proxyReqOpts.headers['Authorization'] = srcReq.headers.authorization;
+      }
+      if (srcReq.headers['content-type']) {
+        proxyReqOpts.headers['Content-Type'] = srcReq.headers['content-type'];
+      }
+      return proxyReqOpts;
+    },
   })
 );
 
