@@ -49,16 +49,29 @@ export const login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      {
+        id: user._id,
+        role: user.role, // 👈 HERE IS THE ANSWER
+      },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    res.json({ user, token });
-  } catch (error) {
+    // 🔐 Never send password
+    res.json({
+      token,
+      user: {
+        _id: user._id,
+        email: user.email,
+        role: user.role, // 👈 FRONTEND READS THIS
+      },
+    });
+
+  } catch (err) {
     res.status(500).json({ msg: "Server error" });
   }
 };
+
 
 export const registerPrestataire = async (req, res) => {
   try {
@@ -72,6 +85,7 @@ export const registerPrestataire = async (req, res) => {
       experience,
       profileImage,
       certificateImage,
+      
     } = req.body;
 
     // Validate required fields
@@ -131,6 +145,7 @@ export const registerPrestataire = async (req, res) => {
       const prestataireRes = await axios.post(
         `${process.env.PRESTATAIRE_SERVICE_URL}/prestataires`,
         {
+          name,
           category,
           service,
           city,

@@ -7,7 +7,10 @@ const prestataireSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-
+     name: {
+      type: String,
+      required: true,
+    },
     category: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",

@@ -8,6 +8,7 @@ import Prestataire from "../models/Prestataire.js";
 export const createPrestataire = async (req, res) => {
   try {
     const {
+      name,
       service,
       category,
       experience,
@@ -58,6 +59,7 @@ export const createPrestataire = async (req, res) => {
     // Create prestataire
     const prestataire = await Prestataire.create({
       user: req.user.id,
+      name,
       service,
       category,
       experience,
@@ -132,6 +134,21 @@ export const verifyPrestataire = async (req, res) => {
 
     res.json(prestataire);
   } catch (error) {
+    res.status(500).json({ msg: "Server error" });
+  }
+};
+
+export const getPrestatairesByService = async (req, res) => {
+  try {
+    const { serviceId } = req.params;
+
+    const prestataires = await Prestataire.find({
+      service: serviceId,
+    });
+
+    res.json(prestataires);
+  } catch (error) {
+    console.error("GET PRESTATAIRES BY SERVICE ERROR:", error.message);
     res.status(500).json({ msg: "Server error" });
   }
 };

@@ -4,8 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function TabsLayout() {
   const pathname = usePathname();
-
-  const isActive = (path: string) => pathname.startsWith(path);
+  const isActive = (path: string) => pathname === path;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F6F7FB" }}>
@@ -40,13 +39,13 @@ export default function TabsLayout() {
           </TouchableOpacity>
         </Link>
 
-        {/* SERVICES LIST (OPTIONAL SCREEN) */}
-        <Link href="./services" asChild>
+        {/* CATEGORIES / SERVICES */}
+        <Link href="/demandslist" asChild>
           <TouchableOpacity>
             <Text
               style={{
                 fontSize: 22,
-                color: isActive("/(tabs)/services")
+                color: isActive("/(tabs)/demandslist")
                   ? "#2563EB"
                   : "#9CA3AF",
               }}
@@ -56,7 +55,7 @@ export default function TabsLayout() {
           </TouchableOpacity>
         </Link>
 
-        {/* ADD (CENTER BUTTON) */}
+        {/* CENTER ACTION */}
         <TouchableOpacity
           style={{
             width: 56,
@@ -67,25 +66,22 @@ export default function TabsLayout() {
             alignItems: "center",
             marginTop: -30,
           }}
-          onPress={() => {
-            console.log("ADD BUTTON");
-          }}
         >
           <Text style={{ fontSize: 26, color: "#fff" }}>＋</Text>
         </TouchableOpacity>
 
-        {/* CHAT */}
-        <Link href="/(tabs)/chat" asChild>
+        {/* DEMANDS (NOT CHAT) */}
+        <Link href="/(tabs)/services" asChild>
           <TouchableOpacity>
             <Text
               style={{
                 fontSize: 22,
-                color: isActive("/(tabs)/chat")
+                color: isActive("/(tabs)/demands")
                   ? "#2563EB"
                   : "#9CA3AF",
               }}
             >
-              💬
+              📄
             </Text>
           </TouchableOpacity>
         </Link>

@@ -2,15 +2,16 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import api from "../services/api";
+
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -20,32 +21,48 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Error", "All fields are required");
-      return;
+  if (!email || !password) {
+    Alert.alert("Error", "All fields are required");
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    const res = await api.post("/auth/login", { email, password });
+
+    const token = res.data.token || res.data.accessToken;
+   const user = res.data.user;
+    if (!token) {
+  throw new Error("Token missing from response");
+}
+
+
+    if (!user?.role) {
+      throw new Error("Role missing from backend");
     }
 
-    try {
-      setLoading(true);
+    await AsyncStorage.multiSet([
+      ["token", token],
+      ["user", JSON.stringify(user)],
+    ]);
 
-      const res = await api.post("/auth/login", {
-        email,
-        password,
-      });
-
-      await AsyncStorage.setItem("token", res.data.token);
-      await AsyncStorage.setItem("user", JSON.stringify(res.data.user));
-
+    // 🔁 ROLE-BASED REDIRECT
+    if (user.role === "prestataire") {
+      router.replace("/prestataires/dashboard"); // ✅ FIXED
+    } else {
       router.replace("/(tabs)");
-    } catch (err: any) {
-      Alert.alert(
-        "Login failed",
-        err?.response?.data?.msg || "Invalid credentials"
-      );
-    } finally {
-      setLoading(false);
     }
-  };
+
+  } catch (err: any) {
+    Alert.alert(
+      "Login failed",
+      err?.response?.data?.msg || "Invalid credentials"
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <SafeAreaView
@@ -185,7 +202,7 @@ export default function LoginScreen() {
               color: "#6B7280",
             }}
           >
-            Don’t have an account?{" "}
+            Don't have an account?{" "}
             <Text style={{ color: "#2563EB", fontWeight: "700" }}>
               Register
             </Text>

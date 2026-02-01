@@ -1,6 +1,5 @@
 import axios from "axios";
 import Service from "../models/Service.js";
-import mongoose from "mongoose";
 
 const PRESTATAIRE_SERVICE_URL = process.env.PRESTATAIRE_SERVICE_URL;
 
@@ -61,7 +60,15 @@ export const getServiceById = async (req, res) => {
 // 🔥 NEW AGGREGATION ENDPOINT
 export const getServiceWithPrestataires = async (req, res) => {
   try {
-    const service = await Service.findById(req.params.id).populate(
+    const { id } = req.params;
+
+    // 1️⃣ Validate service ID
+    if (!id) {
+      return res.status(400).json({ msg: "Service ID is required" });
+    }
+
+    // 2️⃣ Get service
+    const service = await Service.findById(id).populate(
       "category",
       "name icon"
     );
@@ -70,16 +77,39 @@ export const getServiceWithPrestataires = async (req, res) => {
       return res.status(404).json({ msg: "Service not found" });
     }
 
-    const prestatairesRes = await axios.get(
-      `${PRESTATAIRE_SERVICE_URL}/prestataires/by-service/${service._id}`
-    );
+    // 3️⃣ Get prestataires by service
+    let prestataires = [];
+    try {
+      const prestatairesRes = await axios.get(
+        `${process.env.PRESTATAIRE_SERVICE_URL}/prestataires/by-service/${service._id}`
+      );
 
+      // 4️⃣ Normalize data (handle old records)
+      prestataires = prestatairesRes.data.map((p) => ({
+        _id: p._id,
+        name: p.name || "Prestataire", // ✅ fallback for old data
+        city: p.city,
+        experience: p.experience,
+        availability: p.availability,
+        isVerified: p.isVerified,
+      }));
+    } catch (prestataireError) {
+      console.error(
+        "PRESTATAIRE SERVICE ERROR:",
+        prestataireError.response?.data || prestataireError.message
+      );
+    }
+
+    // 5️⃣ Final response
     res.json({
       service,
-      prestataires: prestatairesRes.data,
+      prestataires,
     });
   } catch (error) {
-    console.error(error.message);
+    console.error(
+      "GET SERVICE WITH PRESTATAIRES ERROR:",
+      error.message
+    );
     res.status(500).json({ msg: "Server error" });
   }
 };

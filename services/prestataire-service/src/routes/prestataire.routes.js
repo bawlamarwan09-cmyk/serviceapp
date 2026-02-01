@@ -3,6 +3,7 @@ import {
     createPrestataire,
     getPrestataireById,
     getPrestataires,
+    getPrestatairesByService,
     verifyPrestataire,
 } from "../controllers/prestataire.controller.js";
 
@@ -14,5 +15,6 @@ router.post("/", protect, createPrestataire);
 router.get("/", getPrestataires);
 router.put("/:id/verify", protect, adminOnly, verifyPrestataire);
 router.get("/:id", getPrestataireById);
+router.get("/by-service/:serviceId", getPrestatairesByService);
 
 export default router;
