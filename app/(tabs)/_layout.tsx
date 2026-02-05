@@ -40,7 +40,7 @@ export default function TabsLayout() {
         </Link>
 
         {/* CATEGORIES / SERVICES */}
-        <Link href="/demandslist" asChild>
+        <Link href="/prestataires/demandslist" asChild>
           <TouchableOpacity>
             <Text
               style={{
@@ -71,12 +71,12 @@ export default function TabsLayout() {
         </TouchableOpacity>
 
         {/* DEMANDS (NOT CHAT) */}
-        <Link href="/(tabs)/services" asChild>
+        <Link href="/(tabs)/chat" asChild>
           <TouchableOpacity>
             <Text
               style={{
                 fontSize: 22,
-                color: isActive("/(tabs)/demands")
+                color: isActive("/(tabs)/chat")
                   ? "#2563EB"
                   : "#9CA3AF",
               }}

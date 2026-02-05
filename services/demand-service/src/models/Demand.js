@@ -4,17 +4,14 @@ const demandSchema = new mongoose.Schema({
   clientId: {
     type: mongoose.Schema.Types.ObjectId,
     required: true,
-    ref: "User",
   },
   prestataireId: {
     type: mongoose.Schema.Types.ObjectId,
     required: true,
-    ref: "User",
   },
   serviceId: {
     type: mongoose.Schema.Types.ObjectId,
     required: true,
-    ref: "Service",
   },
   message: {
     type: String,

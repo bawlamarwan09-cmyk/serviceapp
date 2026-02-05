@@ -29,6 +29,7 @@ export default function CategoriesScreen() {
     try {
       const res = await api.get("/catalog/categories");
       setCategories(res.data);
+      console.log(res.data)
     } catch (err) {
       console.log("❌ Error loading categories", err);
     } finally {

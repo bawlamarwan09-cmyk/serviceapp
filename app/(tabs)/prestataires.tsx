@@ -2,13 +2,13 @@ import type { AxiosError } from "axios";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity, // ✅ ADD THIS
+  View
 } from "react-native";
 import api from "../services/api";
 
@@ -24,10 +24,11 @@ type Service = {
 
 type Prestataire = {
   _id: string;
+  user?: string | { _id: string; name?: string; phone?: string };
   name: string;
-  experience: number;
+  experience: string | number;
   city?: string;
-  availability?: boolean; // ✅ correct field
+  availability?: boolean;
 };
 
 type ServiceWithPrestatairesResponse = {
@@ -52,10 +53,6 @@ export default function PrestatairesScreen() {
     fetchPrestataires();
   }, [serviceId]);
 
-  /* =======================
-     FETCH PRESTATAIRES
-  ======================= */
-
   const fetchPrestataires = async () => {
     try {
       const res = await api.get<ServiceWithPrestatairesResponse>(
@@ -65,65 +62,43 @@ export default function PrestatairesScreen() {
       setService(res.data.service);
       setPrestataires(res.data.prestataires);
     } catch (err) {
-  const error = err as AxiosError<any>;
-
-  Alert.alert(
-    "Error",
-    error.response?.data?.msg || "Failed to load prestataires"
-  );
-}
- finally {
+      const error = err as AxiosError<any>;
+      Alert.alert("Error", error.response?.data?.msg || "Failed to load prestataires");
+    } finally {
       setLoading(false);
     }
   };
 
-  /* =======================
-     CREATE DEMAND (RESERVE)
-  ======================= */
-
   const handleReserve = async (prestataireId: string) => {
-    try {
-      setSendingId(prestataireId);
+    setSendingId(prestataireId);
 
+    try {
       await api.post("/demands", {
-        prestataireId,
+        prestataireId: prestataireId,
         serviceId,
         message: `Reservation request for ${service?.name}`,
       });
 
-      Alert.alert("✅ Success", "Reservation sent successfully");
-
+      Alert.alert("Success", "Reservation request sent!");
     } catch (err) {
       const error = err as AxiosError<any>;
-      Alert.alert(
-        "Reservation failed",
-        error.response?.data?.msg || "Something went wrong"
-      );
+      Alert.alert("Error", error.response?.data?.msg || "Failed to send request");
     } finally {
       setSendingId(null);
     }
   };
-  const confirmReserve = (prestataireId: string) => {
-  Alert.alert(
-    "Confirm reservation",
-    "Do you want to send this reservation request?",
-    [
-      {
-        text: "No",
-        style: "cancel",
-      },
-      {
-        text: "Yes",
-        onPress: () => handleReserve(prestataireId),
-      },
-    ],
-    { cancelable: true }
-  );
-};
 
-  /* =======================
-     UI STATES
-  ======================= */
+  const confirmReserve = (prestataireId: string) => {
+    Alert.alert(
+      "Confirm reservation",
+      "Do you want to send this reservation request?",
+      [
+        { text: "No", style: "cancel" },
+        { text: "Yes", onPress: () => handleReserve(prestataireId) },
+      ],
+      { cancelable: true }
+    );
+  };
 
   if (loading) {
     return (
@@ -141,75 +116,56 @@ export default function PrestatairesScreen() {
     );
   }
 
-  /* =======================
-     RENDER
-  ======================= */
-
   return (
     <FlatList
       data={prestataires}
       keyExtractor={(item) => item._id}
       contentContainerStyle={styles.list}
       ListHeaderComponent={
-        service ? (
-          <Text style={styles.header}>{service.name}</Text>
-        ) : null
+        service ? <Text style={styles.header}>{service.name}</Text> : null
       }
-      renderItem={({ item }) => (
-        <View style={styles.card}>
-          {/* NAME */}
-          <Text style={styles.name}>{item.name}</Text>
+      renderItem={({ item }) => {
+        const isSending = sendingId === item._id;
+        const isDisabled = !item.availability || isSending;
 
-          {/* EXPERIENCE */}
-          <Text style={styles.text}>
-            Experience: {item.experience} years
-          </Text>
-
-          {/* CITY */}
-          {item.city && (
-            <Text style={styles.text}>City: {item.city}</Text>
-          )}
-
-          {/* PRICE */}
-          {service?.price && (
-            <Text style={styles.price}>
-              Price: {service.price} DH
-            </Text>
-          )}
-
-          {/* AVAILABILITY */}
-          <Text
-            style={[
-              styles.status,
-              { color: item.availability ? "#16A34A" : "#DC2626" },
-            ]}
-          >
-            {item.availability ? "Available" : "Unavailable"}
-          </Text>
-
-          {/* RESERVE BUTTON */}
-         <TouchableOpacity
-            disabled={!item.availability || sendingId === item._id}
-            onPress={() => confirmReserve(item._id)}
-            style={[
-              styles.reserveBtn,
-              {
-                backgroundColor:
-                  !item.availability || sendingId === item._id
-                    ? "#9CA3AF"
-                    : "#2563EB",
-              },
-            ]}
-          >
-            {sendingId === item._id ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.reserveText}>Reserve</Text>
+        return (
+          <View style={styles.card}>
+            <Text style={styles.name}>{item.name ?? "Prestataire"}</Text>
+            <Text style={styles.text}>Experience: {item.experience} years</Text>
+            {item.city && <Text style={styles.text}>City: {item.city}</Text>}
+            
+            {service?.price !== undefined && (
+              <Text style={styles.price}>Price: {service.price} DH</Text>
             )}
-          </TouchableOpacity>
 
-        </View>
-      )}
+            <Text
+              style={[
+                styles.status,
+                { color: item.availability ? "#16A34A" : "#DC2626" },
+              ]}
+            >
+              {item.availability ? "Available" : "Unavailable"}
+            </Text>
+
+            <TouchableOpacity
+              disabled={isDisabled}
+              onPress={() => confirmReserve(item._id)}
+              style={[
+                styles.reserveBtn,
+                {
+                  backgroundColor: isDisabled ? "#9CA3AF" : "#2563EB",
+                },
+              ]}
+            >
+              {isSending ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.reserveText}>Reserve</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        );
+      }}
     />
   );
 }

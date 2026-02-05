@@ -49,7 +49,7 @@ export default function LoginScreen() {
 
     // 🔁 ROLE-BASED REDIRECT
     if (user.role === "prestataire") {
-      router.replace("/prestataires/dashboard"); // ✅ FIXED
+      router.replace("/prestataires/demandslist"); // ✅ FIXED
     } else {
       router.replace("/(tabs)");
     }
