@@ -24,7 +24,7 @@ type Service = {
 
 type Prestataire = {
   _id: string;
-  user?: string | { _id: string; name?: string; phone?: string };
+  user?: string | { _id: string; name?: string;  };
   name: string;
   experience: string | number;
   city?: string;
@@ -52,6 +52,13 @@ export default function PrestatairesScreen() {
     if (!serviceId) return;
     fetchPrestataires();
   }, [serviceId]);
+const getPrestataireUserId = (p: Prestataire): string | null => {
+  if (!p.user) return null;
+
+  if (typeof p.user === "string") return p.user;
+
+  return p.user._id || null;
+};
 
   const fetchPrestataires = async () => {
     try {
@@ -69,36 +76,46 @@ export default function PrestatairesScreen() {
     }
   };
 
-  const handleReserve = async (prestataireId: string) => {
-    setSendingId(prestataireId);
+  const handleReserve = async (prestataireUserId: string) => {
+  setSendingId(prestataireUserId);
 
-    try {
-      await api.post("/demands", {
-        prestataireId: prestataireId,
-        serviceId,
-        message: `Reservation request for ${service?.name}`,
-      });
+  try {
+    await api.post("/demands", {
+      prestataireId: prestataireUserId, // ✅ USER ID
+      serviceId,
+      message: `Reservation request for ${service?.name}`,
+    });
 
-      Alert.alert("Success", "Reservation request sent!");
-    } catch (err) {
-      const error = err as AxiosError<any>;
-      Alert.alert("Error", error.response?.data?.msg || "Failed to send request");
-    } finally {
-      setSendingId(null);
-    }
-  };
+    Alert.alert("Success", "Reservation request sent!");
+  } catch (err) {
+    const error = err as AxiosError<any>;
+    Alert.alert("Error", error.response?.data?.msg || "Failed to send request");
+  } finally {
+    setSendingId(null);
+  }
+};
 
-  const confirmReserve = (prestataireId: string) => {
-    Alert.alert(
-      "Confirm reservation",
-      "Do you want to send this reservation request?",
-      [
-        { text: "No", style: "cancel" },
-        { text: "Yes", onPress: () => handleReserve(prestataireId) },
-      ],
-      { cancelable: true }
-    );
-  };
+
+  const confirmReserve = (p: Prestataire) => {
+  const userId = getPrestataireUserId(p);
+
+  if (!userId) {
+    Alert.alert("Error", "Missing prestataire user id (backend must populate user)");
+    return;
+  }
+  
+
+  Alert.alert(
+    "Confirm reservation",
+    "Do you want to send this reservation request?",
+    [
+      { text: "No", style: "cancel" },
+      { text: "Yes", onPress: () => handleReserve(userId) }, // ✅ USER ID
+    ],
+    { cancelable: true }
+  );
+};
+
 
   if (loading) {
     return (
@@ -113,7 +130,9 @@ export default function PrestatairesScreen() {
       <View style={styles.center}>
         <Text>No prestataires available for this service</Text>
       </View>
+      
     );
+    
   }
 
   return (
@@ -123,6 +142,7 @@ export default function PrestatairesScreen() {
       contentContainerStyle={styles.list}
       ListHeaderComponent={
         service ? <Text style={styles.header}>{service.name}</Text> : null
+        
       }
       renderItem={({ item }) => {
         const isSending = sendingId === item._id;
@@ -149,7 +169,7 @@ export default function PrestatairesScreen() {
 
             <TouchableOpacity
               disabled={isDisabled}
-              onPress={() => confirmReserve(item._id)}
+              onPress={() => confirmReserve(item)}
               style={[
                 styles.reserveBtn,
                 {

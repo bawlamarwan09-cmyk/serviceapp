@@ -1,21 +1,29 @@
 import jwt from "jsonwebtoken";
 
-
-export const protect = (req, res, next) => {
+// In your protect middleware
+export const protect = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ msg: "Not authorized, no token" });
+    const token = req.headers.authorization?.split(" ")[1];
+    
+    if (!token) {
+      return res.status(401).json({ msg: "No token" });
     }
 
-    const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // ✅ ADD DEBUG
+    console.log("🔐 Auth middleware:");
+    console.log("   decoded:", decoded);
+    console.log("   decoded.id:", decoded.id);
+    
+    req.user = {
+      id: decoded.id,  // ✅ Make sure this exists
+      role: decoded.role,
+    };
 
-    req.user = decoded; // { id, role }
     next();
   } catch (error) {
-    return res.status(401).json({ msg: "Not authorized, token invalid" });
+    res.status(401).json({ msg: "Token invalid" });
   }
 };
 

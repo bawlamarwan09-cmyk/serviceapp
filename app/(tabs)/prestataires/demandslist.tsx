@@ -129,15 +129,23 @@ export default function DemandsListScreen() {
           </Text>
         }
         renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() =>
-              router.push({
-                pathname: "./demand-details",
-                params: { id: item._id },
-              })
-            }
-            style={styles.card}
-          >
+        <TouchableOpacity
+  onPress={() => {
+    if (userRole === "prestataire") {
+      router.push({
+        pathname: "./presdemand-details",
+        params: { id: item._id },
+      });
+    } else {
+      router.push({
+        pathname: "./demand-details",
+        params: { id: item._id },
+      });
+    }
+  }}
+  style={styles.card}
+>
+
             {/* MESSAGE */}
             <Text style={styles.message}>💬 {item.message}</Text>
 

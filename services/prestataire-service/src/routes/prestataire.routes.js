@@ -17,4 +17,6 @@ router.put("/:id/verify", protect, adminOnly, verifyPrestataire);
 router.get("/:id", getPrestataireById);
 router.get("/by-service/:serviceId", getPrestatairesByService);
 
+
 export default router;
+

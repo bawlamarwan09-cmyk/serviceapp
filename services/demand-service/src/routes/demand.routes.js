@@ -1,10 +1,10 @@
 import express from "express";
 import {
-    confirmMeetingLocation,
-    createDemand,
-    getMyDemands,
-    setMeetingLocation,
-    updateStatus,
+  confirmMeetingLocation,
+  createDemand,
+  getMyDemands,
+  setMeetingLocation,
+  updateStatus,
 } from "../controllers/demand.controller.js";
 
 import { onlyPrestataire, protect } from "../middleware/auth.js";

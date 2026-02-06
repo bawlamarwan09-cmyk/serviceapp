@@ -87,6 +87,7 @@ export const getServiceWithPrestataires = async (req, res) => {
       // 4️⃣ Normalize data (handle old records)
       prestataires = prestatairesRes.data.map((p) => ({
         _id: p._id,
+         user: typeof p.user === "object" ? p.user._id : p.user,
         name: p.name || "Prestataire", // ✅ fallback for old data
         city: p.city,
         experience: p.experience,
