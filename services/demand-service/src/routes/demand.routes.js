@@ -2,6 +2,7 @@ import express from "express";
 import {
   confirmMeetingLocation,
   createDemand,
+  getDemandById,
   getMyDemands,
   setMeetingLocation,
   updateStatus,
@@ -15,6 +16,7 @@ router.post("/", protect, createDemand);
 
 router.get("/me", protect, getMyDemands);
 
+router.get("/:id", protect, getDemandById);  // ✅ Add this route
 
 router.put("/:id/status", protect, onlyPrestataire, updateStatus);
 

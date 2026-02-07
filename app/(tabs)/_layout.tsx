@@ -71,12 +71,12 @@ export default function TabsLayout() {
         </TouchableOpacity>
 
         {/* DEMANDS (NOT CHAT) */}
-        <Link href="/(tabs)/chat" asChild>
+        <Link href="/(tabs)/chatList" asChild>
           <TouchableOpacity>
             <Text
               style={{
                 fontSize: 22,
-                color: isActive("/(tabs)/chat")
+                color: isActive("/(tabs)/chatRoom")
                   ? "#2563EB"
                   : "#9CA3AF",
               }}

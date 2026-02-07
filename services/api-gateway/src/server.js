@@ -10,9 +10,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-/**
- * 🔓 PUBLIC AUTH ROUTES (NO JWT HERE)
- */
 app.use(
   "/api/auth",
   proxy(process.env.AUTH_SERVICE_URL, {
@@ -20,9 +17,6 @@ app.use(
   })
 );
 
-/**
- * 🔐 JWT MIDDLEWARE (PROTECT EVERYTHING ELSE)
- */
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
@@ -34,7 +28,6 @@ const authMiddleware = (req, res, next) => {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 🔥 FORWARD AUTH HEADER
     req.headers["authorization"] = authHeader;
 
     req.headers["x-user-id"] = decoded.id;
@@ -57,7 +50,6 @@ app.use(
   })
 );
 
-// Prestataire Service
 app.use(
   "/api/prestataires",
   proxy(process.env.PRESTATAIRE_SERVICE_URL, {
@@ -96,9 +88,6 @@ app.use(
 // Ratings (example)
 app.use("/ratings", proxy("http://localhost:5000"));
 
-/**
- * ❌ FALLBACK
- */
 app.use((req, res) => {
   res.status(404).json({ msg: "Gateway route not found" });
 });

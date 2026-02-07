@@ -33,7 +33,6 @@ export default function PrestataireDemandDetails() {
 
   useEffect(() => {
     loadDemand();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadDemand = async () => {
@@ -58,7 +57,7 @@ export default function PrestataireDemandDetails() {
 
     setUpdating(true);
     try {
-      await api.patch(`/demands/${id}/status`, { status });
+      await api.put(`/demands/${id}/status`, { status });
       Alert.alert("Success", `Demand ${status}`);
       await loadDemand();
     } catch (err: any) {

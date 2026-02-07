@@ -1,82 +1,131 @@
 import axios from "axios";
+import mongoose from "mongoose";
 import Message from "../models/Message.js";
-import mongoose from "mongoose"; 
-
 export const sendMessage = async (req, res) => {
   try {
-    const { to, content, demandId } = req.body;
-    const from = req.user.id;
+    const { demandId, content } = req.body;
+    const senderId = req.user.id;
+    const senderRole = req.user.role;
 
-    // 1. Basic Validation
-    if (!to || !content || !demandId) {
-      return res.status(400).json({ msg: "Missing fields" });
+    if (!demandId || !content?.trim()) {
+      return res.status(400).json({ msg: "demandId and content are required" });
     }
 
-    // 2. Cross-Service Validation (Optional but recommended)
-    // We check with Demand Service if this 'from' and 'to' actually belong to this demand
-    const demandCheck = await axios.get(
-      `${process.env.DEMAND_SERVICE_URL}/api/demands/${demandId}`,
-      { headers: { Authorization: req.headers.authorization } }
-    );
-    
-    const demand = demandCheck.data;
-    const participants = [demand.clientId.toString(), demand.prestataireId.toString()];
-    
-    if (!participants.includes(from) || !participants.includes(to)) {
-      return res.status(403).json({ msg: "User not part of this demand" });
+    let recipientId = null;
+
+    if (process.env.DEMAND_SERVICE_URL) {
+      try {
+        const demandRes = await axios.get(
+          `${process.env.DEMAND_SERVICE_URL}/demands/${demandId}`,
+          {
+            headers: { Authorization: req.headers.authorization },
+            timeout: 5000,
+          }
+        );
+
+        const demand = demandRes.data;
+
+        if (senderRole === "client") {
+          if (demand.clientId?.toString() !== senderId) {
+            return res
+              .status(403)
+              .json({ msg: "Access denied - not your demand" });
+          }
+          recipientId = demand.prestataireId?.toString();
+        } else if (senderRole === "prestataire") {
+          if (demand.prestataireId?.toString() !== senderId) {
+            return res
+              .status(403)
+              .json({ msg: "Access denied - not your demand" });
+          }
+          recipientId = demand.clientId?.toString();
+        } else {
+          return res.status(403).json({ msg: "Invalid user role" });
+        }
+
+        if (!recipientId) {
+          return res.status(400).json({ msg: "Recipient not found" });
+        }
+      } catch (error) {
+        return res.status(403).json({ msg: "Access denied" });
+      }
+    } else {
+      return res.status(500).json({ msg: "DEMAND_SERVICE_URL not configured" });
     }
 
-    // 3. Save to DB
-    const newMessage = await Message.create({
-      from,
-      to,
+    const message = await Message.create({
       demandId,
-      content,
+      from: senderId,
+      to: recipientId,
+      senderId: senderId,
+      recipientId: recipientId,
+      content: content.trim(),
+      read: false,
     });
 
-    res.status(201).json(newMessage);
+
+    return res.status(201).json(message);
   } catch (error) {
-    console.error("Error saving message:", error.message);
-    res.status(500).json({ msg: "Message delivery failed" });
+    return res.status(500).json({ msg: "Server error", error: error.message });
   }
 };
 
-/**
- * GET MESSAGES BY DEMAND
- */
 export const getMessagesByDemand = async (req, res) => {
   try {
     const { demandId } = req.params;
     const userId = req.user.id;
-
-    // Verify user is part of demand (Similar logic to sendMessage)
+    const userRole = req.user.role;
     if (process.env.DEMAND_SERVICE_URL) {
-        const demandRes = await axios.get(`${process.env.DEMAND_SERVICE_URL}/api/demands/${demandId}`, {
+      try {
+        const demandRes = await axios.get(
+          `${process.env.DEMAND_SERVICE_URL}/demands/${demandId}`,
+          {
             headers: { Authorization: req.headers.authorization }
-        });
-        const d = demandRes.data;
-        if (d.clientId.toString() !== userId && d.prestataireId.toString() !== userId) {
+          }
+        );
+        
+        const demand = demandRes.data;
+        let hasAccess = false;
+
+        if (userRole === "client") {
+          hasAccess = demand.clientId.toString() === userId;
+        } else if (userRole === "prestataire") {
+          try {
+            const prestataireResponse = await axios.get(
+              `${process.env.PRESTATAIRE_SERVICE_URL}/${userId}`,
+              {
+                headers: { Authorization: req.headers.authorization },
+                timeout: 5000,
+              }
+            );
+
+            const prestataireId = prestataireResponse.data._id.toString();
+            hasAccess = demand.prestataireId.toString() === prestataireId;
+
+          } catch (error) {
             return res.status(403).json({ msg: "Access denied" });
+          }
         }
+
+        if (!hasAccess) {
+          return res.status(403).json({ msg: "Access denied" });
+        }
+      } catch (error) {
+        return res.status(403).json({ msg: "Access denied" });
+      }
     }
 
-    const messages = await Message.find({ demandId }).sort({ createdAt: 1 });
-
-    // Mark messages as read if the recipient is the current user
-    await Message.updateMany(
-      { demandId, to: userId, read: false },
-      { read: true }
-    );
+    const messages = await Message.find({ demandId })
+      .sort({ createdAt: 1 })
+      .lean();
 
     res.json(messages);
+
   } catch (error) {
-    res.status(500).json({ msg: "Server error" });
+    res.status(500).json({ msg: "Server error", error: error.message });
   }
 };
 
-/**
- * GET ALL CONVERSATIONS
- */
 export const getConversations = async (req, res) => {
   try {
     const userId = new mongoose.Types.ObjectId(req.user.id);
@@ -110,5 +159,47 @@ export const getConversations = async (req, res) => {
     res.json(conversations);
   } catch (error) {
     res.status(500).json({ msg: "Aggregation error", error: error.message });
+  }
+};
+
+export const initConversation = async (req, res) => {
+  try {
+    const { demandId, clientId, prestataireId, initialMessage } = req.body;
+    const senderId = req.user.id;
+    if (senderId !== prestataireId) {
+      return res.status(403).json({ msg: "Only prestataire can initialize conversation" });
+    }
+
+    const existingMessages = await Message.find({ demandId });
+    
+    if (existingMessages.length > 0) {
+      return res.json({ msg: "Conversation already exists", messages: existingMessages });
+    }
+    const message = await Message.create({
+      demandId,
+      from: prestataireId,
+      to: clientId,
+      content: initialMessage || "Hello! I have accepted your request.",
+      read: false
+    });
+
+    res.status(201).json(message);
+  } catch (error) {
+    res.status(500).json({ msg: "Server error", error: error.message });
+  }
+};
+export const getMessagesByDemands = async (req, res) => {
+  try {
+    const { demandId } = req.params;
+    const userId = req.user.id;
+
+    const list = await Message.find({
+      demandId,
+      $or: [{ from: userId }, { to: userId }],
+    }).sort({ createdAt: 1 });
+
+    return res.json(list);
+  } catch (error) {
+    return res.status(500).json({ msg: "Server error", error: error.message });
   }
 };

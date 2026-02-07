@@ -1,6 +1,6 @@
 import axios from "axios";
 import Demand from "../models/Demand.js";
-// ✅ Create demand
+
 export const createDemand = async (req, res) => {
   try {
     const { prestataireId, serviceId, message } = req.body;
@@ -29,22 +29,17 @@ export const createDemand = async (req, res) => {
       message,
     });
 
-    console.log("✅ Demand created:", demand._id);
     res.status(201).json(demand);
 
   } catch (error) {
-    console.error("❌ CREATE DEMAND ERROR:", error.message);
     res.status(500).json({ msg: "Server error", error: error.message });
   }
 };
 
-// ✅ Get my demands
 export const getMyDemands = async (req, res) => {
   try {
     const userId = req.user.id;
     const userRole = req.user.role;
-
-    console.log("🔍 Get demands for user:", userId, "Role:", userRole);
 
     if (userRole !== "client" && userRole !== "prestataire") {
       return res.status(403).json({
@@ -56,20 +51,13 @@ export const getMyDemands = async (req, res) => {
   $or: [{ clientId: userId }, { prestataireId: userId }],
 })
 .populate("clientId", "name phone")
-.populate("prestataireId", "name")
+.populate("prestataireId", "name");
 
-     
-
-    console.log(`✅ Found ${list.length} demands for user`);
     res.json(list);
   } catch (error) {
-    console.error("GET MY DEMANDS ERROR:", error.message);
     res.status(500).json({ msg: "Server error" });
   }
 };
-
-
-// ✅ Update status
 
 export const updateStatus = async (req, res) => {
   try {
@@ -77,11 +65,6 @@ export const updateStatus = async (req, res) => {
     const userId = req.user.id;
     const userRole = req.user.role;
 
-    console.log("📥 Update status request");
-    console.log("   User ID:", userId);
-    console.log("   User Role:", userRole);
-
-    // ✅ Only prestataires can update status
     if (userRole !== 'prestataire') {
       return res.status(403).json({ 
         msg: "Only prestataires can update demand status" 
@@ -98,60 +81,50 @@ export const updateStatus = async (req, res) => {
       return res.status(404).json({ msg: "Demand not found" });
     }
 
-    // ✅ Verify this prestataire owns this demand
-    if (process.env.PRESTATAIRE_SERVICE_URL) {
-      try {
-        const prestataireRes = await axios.get(
-          `${process.env.PRESTATAIRE_SERVICE_URL}/api/prestataires/${demand.prestataireId}`
-        );
-
-        const prestataireUserId = prestataireRes.data.user.toString();
-
-        if (prestataireUserId !== userId) {
-          return res.status(403).json({ msg: "Not authorized to update this demand" });
-        }
-
-      } catch (error) {
-        console.warn("⚠️ Prestataire verification failed, checking direct ID");
-        
-        // Fallback: check if demand.prestataireId matches user ID
-        if (demand.prestataireId.toString() !== userId) {
-          return res.status(403).json({ msg: "Not authorized to update this demand" });
-        }
-      }
-    } else {
-      // No prestataire service, check directly
-      if (demand.prestataireId.toString() !== userId) {
-        return res.status(403).json({ msg: "Not authorized to update this demand" });
-      }
+    // Verify this prestataire owns this demand
+    if (demand.prestataireId.toString() !== userId) {
+      return res.status(403).json({ msg: "Not authorized to update this demand" });
     }
 
     demand.status = status;
     await demand.save();
 
-    console.log("✅ Status updated to:", status);
+    if (status === "accepted" && process.env.MESSAGE_SERVICE_URL) {
+      try {
+        await axios.post(
+          `${process.env.MESSAGE_SERVICE_URL}/api/messages/init-conversation`,
+          {
+            demandId: demand._id.toString(),
+            clientId: demand.clientId.toString(),
+            prestataireId: demand.prestataireId.toString(),
+            initialMessage: `Hello! I have accepted your request for: ${demand.message}`
+          },
+          {
+            headers: {
+              Authorization: req.headers.authorization
+            }
+          }
+        );
+
+      } catch (error) {
+        console.error("Failed to create conversation:", error.message);
+        // Don't fail the status update if message creation fails
+      }
+    }
+
     res.json(demand);
 
   } catch (error) {
-    console.error("UPDATE STATUS ERROR:", error.message);
     res.status(500).json({ msg: "Server error", error: error.message });
   }
 };
-/**
- * SET MEETING LOCATION (Prestataire)
- */
+
 export const setMeetingLocation = async (req, res) => {
   try {
     const { latitude, longitude, address, appointmentDate } = req.body;
     const userId = req.user.id;
     const demandId = req.params.id;
 
-    console.log("📍 Setting meeting location");
-    console.log("   Demand ID:", demandId);
-    console.log("   User ID:", userId);
-    console.log("   Location:", { latitude, longitude, address });
-
-    // Validate
     if (!latitude || !longitude) {
       return res.status(400).json({ msg: "Latitude and longitude are required" });
     }
@@ -163,7 +136,6 @@ export const setMeetingLocation = async (req, res) => {
       return res.status(404).json({ msg: "Demand not found" });
     }
 
-    // ✅ Only prestataire can set initial location
     if (demand.prestataireId.toString() !== userId) {
       return res.status(403).json({ msg: "Only prestataire can set meeting location" });
     }
@@ -183,26 +155,17 @@ export const setMeetingLocation = async (req, res) => {
 
     await demand.save();
 
-    console.log("✅ Location set successfully");
     res.json(demand);
 
   } catch (error) {
-    console.error("SET LOCATION ERROR:", error.message);
     res.status(500).json({ msg: "Server error", error: error.message });
   }
 };
 
-/**
- * CONFIRM MEETING LOCATION (Client)
- */
 export const confirmMeetingLocation = async (req, res) => {
   try {
     const userId = req.user.id;
     const demandId = req.params.id;
-
-    console.log("✅ Confirming meeting location");
-    console.log("   Demand ID:", demandId);
-    console.log("   User ID:", userId);
 
     const demand = await Demand.findById(demandId);
     
@@ -210,7 +173,6 @@ export const confirmMeetingLocation = async (req, res) => {
       return res.status(404).json({ msg: "Demand not found" });
     }
 
-    // ✅ Only client can confirm
     if (demand.clientId.toString() !== userId) {
       return res.status(403).json({ msg: "Only client can confirm meeting location" });
     }
@@ -220,22 +182,18 @@ export const confirmMeetingLocation = async (req, res) => {
       return res.status(400).json({ msg: "No location to confirm" });
     }
 
-    // Update confirmation
     demand.location.confirmedBy = 'both';
     await demand.save();
 
-    console.log("✅ Location confirmed by client");
     res.json(demand);
 
   } catch (error) {
-    console.error("CONFIRM LOCATION ERROR:", error.message);
     res.status(500).json({ msg: "Server error", error: error.message });
   }
 };
 
 export const getDemandesByPrestataire = async (req, res) => {
   try {
-    // extra security
     if (req.user.id !== req.params.id) {
       return res.status(403).json({ msg: "Forbidden" });
     }
@@ -249,3 +207,18 @@ export const getDemandesByPrestataire = async (req, res) => {
     res.status(500).json({ msg: "Server error" });
   }
 }
+export const getDemandById = async (req, res) => {
+  try {
+    const demandId = req.params.id;
+    
+    const demand = await Demand.findById(demandId);
+    
+    if (!demand) {
+      return res.status(404).json({ msg: "Demand not found" });
+    }
+    
+    res.json(demand);
+  } catch (error) {
+    res.status(500).json({ msg: "Server error", error: error.message });
+  }
+};
